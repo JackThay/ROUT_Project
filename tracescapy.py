@@ -1,10 +1,15 @@
+'''
+Created on April 16, 2023
+@author: Thierry Ung, Jack Thay
+Main side of ROUT Project
+'''
 import sys
 from scapy.all import *
 
 def traceroute(hostname):
-    ttl = 1
-    max_hops = 30
-    timeout = 2
+    ttl = 1 # Time to live
+    max_hops = 30 # Maximum hops packet can do
+    timeout = 2 # Time before packet is considered lost
 
     while ttl <= max_hops:
         pkt = IP(dst=hostname, ttl=ttl) / UDP(dport=33434)
@@ -20,5 +25,5 @@ def traceroute(hostname):
         ttl += 1
 
 if __name__ == "__main__":
-    hostname = sys.argv[1]
+    hostname = sys.argv[1] # ==> @Thierry, IndexError: list index out of range?
     traceroute(hostname)
