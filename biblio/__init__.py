@@ -1,5 +1,5 @@
 """A python3 library for performing an enhanced scapy Traceroute"""
-"""with resulting SVG visual."""
+"""with resulting SVG visual.                                               """
 
 ##########################
 # Required Imports       #
@@ -1147,4 +1147,327 @@ class MTracerouteResult(SndRcvList):
             mtrc._tlblid.append(tlid)
 
 
+####################
+# Multi-Traceroute #
+####################
+@conf.commands.register
+def mtr(target, dport=80, minttl=1, maxttl=30, stype="Random", srcport=50000, iface=None, l4=None, filter=None, timeout=2, verbose=None, gw=None, netproto="TCP", nquery=1, ptype=None, payload=b'', privaddr=0, rasn=1, **kargs):
+    """A Multi-Traceroute (mtr) command:
+         mtr(target, [maxttl=30,] [dport=80,] [sport=80,] [minttl=1,] [maxttl=1,] [iface=None]
+             [l4=None,] [filter=None,] [nquery=1,] [privaddr=0,] [rasn=1,] [verbose=conf.verb])
 
+              stype: Source Port Type: "Random" or "Increment".
+            srcport: Source Port. Default: 50000.
+                 gw: IPv4 Address of the Default Gateway.
+           netproto: Network Protocol (One of: "TCP", "UDP" or "ICMP").
+             nquery: Number of Traceroute queries to perform.
+              ptype: Payload Type: "Disable", "RandStr", "RandStrTerm" or "Custom".
+            payload: A byte object for each packet payload (e.g., b'\x01A\x0f\xff\x00') for ptype: 'Custom'.
+           privaddr: 0 - Default: Normal display of all resolved AS numbers.
+                     1 - Do not show an associated AS Number bound box (cluster) on graph for a private IPv4 Address.
+               rasn: 0 - Do not resolve AS Numbers - No graph clustering.
+                     1 - Default: Resolve all AS numbers.
+             retry: If positive, how many times to resend unanswered packets
+                    if negative, how many times to retry when no more packets
+                    are answered.
+           timeout: How much time to wait after the last packet has been sent."""
+    #
+    # Initialize vars...
+    trace = []			# Individual trace array
+    #
+    # Range check number of query traces
+    if nquery < 1:
+        nquery = 1
+    #
+    # Create instance of an MTR class...
+    mtrc = MTR(nquery=nquery, target=target)
+    #
+    # Default to network protocol: "TCP" if not found in list...
+    plist = ["TCP", "UDP", "ICMP"]
+    netproto = netproto.upper()
+    if netproto not in plist:
+        netproto = "TCP"
+    mtrc._netprotocol = netproto
+    #
+    # Default to source type: "Random" if not found in list...
+    slist = ["Random", "Increment"]
+    stype = stype.title()
+    if stype not in slist:
+        stype = "Random"
+    if stype == "Random":
+        sport = RandShort()  # Random
+    elif stype == "Increment":
+        if srcport != None:
+            sport = IncrementalValue(start=(srcport - 1), step=1, restart=65535)  # Increment
+    #
+    # Default to payload type to it's default network protocol value if not found in list...
+    pllist = ["Disabled", "RandStr", "RandStrTerm", "Custom"]
+    if ptype is None or (not ptype in pllist):
+        if netproto == "ICMP":
+            ptype = "RandStr"	   # ICMP: A random string payload to fill out the minimum packet size
+        elif netproto == "UDP":
+            ptype = "RandStrTerm"  # UDP: A random string terminated payload to fill out the minimum packet size
+        elif netproto == "TCP":
+            ptype = "Disabled"	   # TCP: Disabled -> The minimum packet size satisfied - no payload required
+    #
+    # Set trace interface...
+    if not iface is None:
+        mtrc._iface = iface
+    else:
+        mtrc._iface = conf.iface
+    #
+    # Set Default Gateway...
+    if not gw is None:
+        mtrc._gw = gw
+    #
+    # Set default verbosity if no override...
+    if verbose is None:
+        verbose = conf.verb
+    #
+    # Only consider ICMP error packets and TCP packets with at
+    # least the ACK flag set *and* either the SYN or the RST flag set...
+    filterundefined = False
+    if filter is None:
+        filterundefined = True
+        filter = "(icmp and (icmp[0]=3 or icmp[0]=4 or icmp[0]=5 or icmp[0]=11 or icmp[0]=12)) or (tcp and (tcp[13] & 0x16 > 0x10))"
+    #
+    # Resolve and expand each target...
+    ntraces = 0		# Total trace count
+    exptrg = []		# Expanded targets
+    for t in target:
+        #
+        # Use scapy's 'Net' function to expand target...
+        et = [ip for ip in iter(Net(t))]
+        exptrg.extend(et)
+        #
+        # Map Host Names to IP Addresses and store...
+        if t in mtrc._host2ip:
+            mtrc._host2ip[t].extend(et)
+        else:
+            mtrc._host2ip[t] = et
+        #
+        # Map IP Addresses to Host Names and store...
+        for a in et:
+            mtrc._ip2host[a] = t
+    #
+    # Store resolved and expanded targets...
+    mtrc._exptrg = exptrg
+    #
+    # Traceroute each expanded target value...
+    if l4 is None:
+        #
+        # Standard Layer: 3 ('TCP', 'UDP' or 'ICMP') tracing...
+        for n in range(0, nquery):                              # Iterate: Number of queries
+            for t in exptrg:                                    # Iterate: Number of expanded targets
+                #
+                # Execute a traceroute based on network protocol setting...
+                if netproto == "ICMP":
+                    #
+                    # MTR Network Protocol: 'ICMP'
+                    tid = 8				        # Use a 'Type: 8 - Echo Request' packet for the trace:
+                    id = 0x8888					# MTR ICMP identifier: '0x8888'
+                    seq = IncrementalValue(start=(minttl - 2), step=1, restart=-10)  # Use a Sequence number in step with TTL value
+                    if filterundefined:
+                        #
+                        # Update Filter -> Allow for ICMP echo-request (8) and ICMP echo-reply (0) packet to be processed...
+                        filter = "(icmp and (icmp[0]=8 or icmp[0]=0 or icmp[0]=3 or icmp[0]=4 or icmp[0]=5 or icmp[0]=11 or icmp[0]=12))"
+                    #
+                    # Check payload types:
+                    if ptype == 'Disabled':
+                        ip = IP(dst=[t], id=RandShort(), ttl=(minttl, maxttl))
+                        icmp = ICMP(type=tid, id=id, seq=seq)
+                        ipicmp = ip / icmp
+                        a, b = sr(ipicmp, iface=iface, timeout=timeout, filter=filter, verbose=verbose, **kargs)
+                    else:
+                        if ptype == 'RandStr':
+                            #
+                            # Use a random payload string to full out a minimum size PDU of 46 bytes for each ICMP packet:
+                            # Length of 'IP()/ICMP()' = 28, Minimum Protocol Data Unit (PDU) is = 46 -> Therefore a
+                            # payload of 18 octets is required.
+                            pload = RandString(size=18)
+                        elif ptype == 'RandStrTerm':
+                            pload = RandStringTerm(size=17, term=b'\n')  # Random string terminated
+                        elif ptype == 'Custom':
+                            pload = payload
+                        #
+                        # ICMP trace with payload...
+                        ip = IP(dst=[t], id=RandShort(), ttl=(minttl, maxttl))
+                        icmp = ICMP(type=tid, id=id, seq=seq)
+                        raw = Raw(load=pload)
+                        ipicmpraw = ip  / icmp / raw
+                        a, b = sr(ipicmpraw, iface=iface, timeout=timeout, filter=filter, verbose=verbose, **kargs)
+                elif netproto == "UDP":
+                    #
+                    # MTR Network Protocol: 'UDP'
+                    if filterundefined:
+                        filter += " or udp"			# Update Filter -> Allow for processing UDP packets
+                    #
+                    # Check payload types:
+                    if ptype == 'Disabled':
+                        ip = IP(dst=[t], id=RandShort(), ttl=(minttl, maxttl))
+                        udp = UDP(sport=sport, dport=dport)
+                        ipudp = ip / udp
+                        a, b = sr(ipudp, iface=iface, timeout=timeout, filter=filter, verbose=verbose, **kargs)
+                    else:
+                        if ptype == 'RandStr':
+                            #
+                            # Use a random payload string to full out a minimum size PDU of 46 bytes for each UDP packet:
+                            # Length of 'IP()/UDP()' = 28, Minimum PDU is = 46 -> Therefore a payload of 18 octets is required.
+                            pload = RandString(size=18)
+                        elif ptype == 'RandStrTerm':
+                            pload = RandStringTerm(size=17, term=b'\n')  # Random string terminated
+                        elif ptype == 'Custom':
+                            pload = payload
+                        #
+                        # UDP trace with payload...
+                        ip = IP(dst=[t], id=RandShort(), ttl=(minttl, maxttl))
+                        udp = UDP(sport=sport, dport=dport)
+                        raw = Raw(load=pload)
+                        ipudpraw = ip  / udp / raw
+                        a, b = sr(ipudpraw, iface=iface, timeout=timeout, filter=filter, verbose=verbose, **kargs)
+                else:
+                    #
+                    # Default MTR Network Protocol: 'TCP'
+                    #
+                    # Use some TCP options for the trace. Some firewalls will filter
+                    # TCP/IP packets without the 'Timestamp' option set.
+                    #
+                    # Note: The minimum PDU size of 46 is statisfied with the use of TCP options.
+                    #
+                    # Use an integer encoded microsecond timestamp for the TCP option timestamp for each trace sequence.
+                    uts = int(time.clock_gettime(time.CLOCK_REALTIME))
+                    opts = [('MSS', 1460), ('NOP', None), ('Timestamp', (uts, 0)), ('WScale', 7)]
+                    seq = RandInt()		# Use a start random TCP sequence number
+                    #
+                    # Check payload types:
+                    if ptype == 'Disabled':
+                        ip = IP(dst=[t], id=RandShort(), ttl=(minttl, maxttl))
+                        tcp = TCP(seq=seq, sport=sport, dport=dport, options=opts)
+                        iptcp = ip  / tcp
+                        a, b = sr(iptcp, iface=iface, timeout=timeout, filter=filter, verbose=verbose, **kargs)
+                    else:
+                        if ptype == 'RandStr':
+                            pload = RandString(size=32)	                 # Use a 32 byte random string
+                        elif ptype == 'RandStrTerm':
+                            pload = RandStringTerm(size=32, term=b'\n')  # Use a 32 byte random string terminated
+                        elif ptype == 'Custom':
+                            pload = payload
+                        #
+                        # TCP trace with payload...
+                        ip = IP(dst=[t], id=RandShort(), ttl=(minttl, maxttl))
+                        tcp = TCP(seq=seq, sport=sport, dport=dport, options=opts)
+                        raw = Raw(load=pload)
+                        iptcpraw = ip  / tcp / raw
+                        a, b = sr(iptcpraw, iface=iface, timeout=timeout, filter=filter, verbose=verbose, **kargs)
+                #
+                # Create an 'MTracerouteResult' instance for each result packets...
+                trace.append(MTracerouteResult(res=a.res))
+                mtrc._res.append(a)		# Store Response packets
+                mtrc._ures.append(b)		# Store Unresponse packets
+                if verbose:
+                    trace[ntraces].show(ntrace=(ntraces + 1))
+                    print()
+                ntraces += 1
+    else:
+        #
+        # Custom Layer: 4 tracing...
+        filter = "ip"
+        for n in range(0, nquery):
+            for t in exptrg:
+                #
+                # Run traceroute...
+                a, b = sr(IP(dst=[t], id=RandShort(), ttl=(minttl, maxttl)) / l4,
+                          iface=iface, timeout=timeout, filter=filter, verbose=verbose, **kargs)
+                trace.append(MTracerouteResult(res=a.res))
+                mtrc._res.append(a)
+                mtrc._ures.append(b)
+                if verbose:
+                    trace[ntraces].show(ntrace=(ntraces + 1))
+                    print()
+                ntraces += 1
+    #
+    # Store total trace run count...
+    mtrc._ntraces = ntraces
+    #
+    # Get the trace components...
+    # for n in range(0, ntraces):
+    for n in range(0, mtrc._ntraces):
+        trace[n].get_trace_components(mtrc, n)
+    #
+    # Compute any Black Holes...
+    mtrc.get_black_holes()
+    #
+    # Compute Trace Hop Ranges...
+    mtrc.compute_hop_ranges()
+    #
+    # Resolve AS Numbers...
+    if rasn:
+        mtrc.get_asns(privaddr)
+        #
+        # Try to guess ASNs for Traceroute 'Unkown Hops'...
+        mtrc.guess_unk_asns()
+    #
+    # Debug: Print object vars at verbose level 8...
+    if verbose == 8:
+        print("mtrc._target (User Target(s)):")
+        print("=======================================================")
+        print(mtrc._target)
+        print("\nmtrc._exptrg (Resolved and Expanded Target(s)):")
+        print("=======================================================")
+        print(mtrc._exptrg)
+        print("\nmtrc._host2ip (Target Host Name to IP Address):")
+        print("=======================================================")
+        print(mtrc._host2ip)
+        print("\nmtrc._ip2host (Target IP Address to Host Name):")
+        print("=======================================================")
+        print(mtrc._ip2host)
+        print("\nmtrc._res (Trace Response Packets):")
+        print("=======================================================")
+        print(mtrc._res)
+        print("\nmtrc._ures (Trace Unresponse Packets):")
+        print("=======================================================")
+        print(mtrc._ures)
+        print("\nmtrc._ips (Trace Unique IPv4 Addresses):")
+        print("=======================================================")
+        print(mtrc._ips)
+        print("\nmtrc._rt (Individual Route Traces):")
+        print("=======================================================")
+        print(mtrc._rt)
+        print("\nmtrc._rtt (Round Trip Times (msecs) for Trace Nodes):")
+        print("=======================================================")
+        print(mtrc._rtt)
+        print("\nmtrc._hops (Traceroute Hop Ranges):")
+        print("=======================================================")
+        print(mtrc._hops)
+        print("\nmtrc._tlblid (Target Trace Label IDs):")
+        print("=======================================================")
+        print(mtrc._tlblid)
+        print("\nmtrc._ports (Completed Targets & Ports):")
+        print("=======================================================")
+        print(mtrc._ports)
+        print("\nmtrc._portsdone (Completed Trace Routes & Ports):")
+        print("=======================================================")
+        print(mtrc._portsdone)
+        print("\nconf.L3socket (Layer 3 Socket Method):")
+        print("=======================================================")
+        print(conf.L3socket)
+        print("\nconf.AS_resolver Resolver (AS Resolver Method):")
+        print("=======================================================")
+        print(conf.AS_resolver)
+        print("\nmtrc._asns (AS Numbers):")
+        print("=======================================================")
+        print(mtrc._asns)
+        print("\nmtrc._asds (AS Descriptions):")
+        print("=======================================================")
+        print(mtrc._asds)
+        print("\nmtrc._unks (Unknown Hops IP Boundary for AS Numbers):")
+        print("=======================================================")
+        print(mtrc._unks)
+        print("\nmtrc._iface (Trace Interface):")
+        print("=======================================================")
+        print(mtrc._iface)
+        print("\nmtrc._gw (Trace Default Gateway IPv4 Address):")
+        print("=======================================================")
+        print(mtrc._gw)
+
+    return mtrc
