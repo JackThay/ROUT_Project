@@ -22,6 +22,7 @@ def main():
     name             = install.name,
     packages         = install.packages,
     package_data     = install.package_data,
+    scripts          = install.scripts,
   )
 #
 #-----------------------------------------------------------------------------

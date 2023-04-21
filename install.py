@@ -11,4 +11,6 @@ package_data = {
   ],
 }
 
+scripts = ['traceroute.py']
+
 
