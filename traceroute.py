@@ -2,9 +2,9 @@ import os, sys, subprocess, getopt
 import binascii
 import netifaces
 from scapy.all import *
-from mtraceroute import *
+from biblio import *
 
-def traceroute(target, dport=80, minttl=1, maxttl=30, stype="Random", srcport=50000, iface=None, l4=None, filter=None, timeout=2, verbose=None, gw=None, netproto="TCP", nquery=1, ptype=None, payload=b'', privaddr=0, rasn=1, **kargs):
+def traceroute(target, dport=80, minttl=1, maxttl=30, stype="Random", srcport=50000, iface=None, l4=None, filter=None, timeout=0.005, verbose=None, gw=None, netproto="TCP", nquery=1, ptype=None, payload=b'', privaddr=0, rasn=1, **kargs):
     """A Multi-Traceroute command:
          traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [minttl=1,] [maxttl=1,] [iface=None]
              [l4=None,] [filter=None,] [nquery=1,] [privaddr=0,] [rasn=1,] [verbose=conf.verb])

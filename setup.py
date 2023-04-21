@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-#-----------------------------------------------------------------------------
-#   A setup.py installation script modified for 'mtraceroute.py'.
-#-----------------------------------------------------------------------------
-"""
-A distutils Python setup file. For setuptools support see setup_egg.py.
-"""
 import os
 import sys
 
@@ -13,7 +6,7 @@ from distutils.core import setup
 if os.path.exists('MANIFEST'):
   os.remove('MANIFEST')
 
-import release
+import install
 #
 #-----------------------------------------------------------------------------
 def main():
@@ -26,21 +19,9 @@ def main():
     print()
 
   setup(
-    name             = release.name,
-    version          = release.version,
-    description      = release.description,
-    keywords         = release.keywords,
-    download_url     = release.download_url,
-    author           = release.author,
-    author_email     = release.author_email,
-    url              = release.url,
-    packages         = release.packages,
-    package_data     = release.package_data,
-    license          = release.license,
-    long_description = release.long_description,
-    scripts          = release.scripts,
-    platforms        = release.platforms,
-    classifiers      = release.classifiers,
+    name             = install.name,
+    packages         = install.packages,
+    package_data     = install.package_data,
   )
 #
 #-----------------------------------------------------------------------------
