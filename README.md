@@ -1,7 +1,7 @@
 # ROUT_Project
 Projet de ROUT 2022-2023 Sorbonne Université 
 
-## Encadrant:
+## Enseignants:
 - Promethee Spathis
 - Nour El Houda Yella
 - Patient Ntumba Wa Ntumba
