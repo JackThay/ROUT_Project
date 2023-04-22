@@ -29,5 +29,7 @@ Instruction pour installer le projet:
 * pip install -r requirement.txt
 * pip install library
 * sudo python3 main.py --version;
+
 ou selon votre version de Python:
+
 * sudo python main.py --version;
