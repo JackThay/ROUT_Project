@@ -358,7 +358,7 @@ def main(argv):
     sys.exit(1)
   for opt,arg in opts:
     if opt in ("--version"):
-       print('Projet de ROUT 2022-2023 Sorbonne Université')
+       print('ROUT 2022-2023 Project from Sorbonne Université by Thierry UNG/Jack Thay version 1.0')
        sys.exit(0)
     if opt in ("-h", "--help"):
       usage()
