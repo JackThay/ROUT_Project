@@ -1,3 +1,8 @@
+'''
+Created on April 17, 2023
+@author: Thierry Ung, Jack Thay
+Main component of traceroute project 
+'''
 import os, sys, subprocess, getopt
 import binascii
 import netifaces
