@@ -7,8 +7,8 @@ Projet de ROUT 2022-2023 Sorbonne Université
 - Patient Ntumba Wa Ntumba
 
 ## Membres de l'équipe:
-- THAY Jack
-- UNG Thierry
+- THAY Jack (21201049)
+- UNG Thierry (3804472)
 
 ### Projet de ROUT
 Notre projet a été développé en langage Python pour les systèmes d'exploitation Linux.
