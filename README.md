@@ -26,7 +26,7 @@ Une fois installé, continuez en suivant les instructions correspondant à votre
 Instruction pour installer le projet:
 * sudo apt-get install python3-scapy
 * sudo apt-get install python3-dev graphviz libgraphviz-dev pkg-config
-* pip install -r requirement.txt
+* pip install -r requirements.txt
 * pip install library
 * sudo python3 main.py --version;
 
