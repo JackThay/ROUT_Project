@@ -1,5 +1,8 @@
-"""A python3 library for visualising an enhanced scapy Traceroute"""
-
+'''
+Created on April 17, 2023
+@author: Thierry Ung, Jack Thay
+Secondary component of traceroute project, uses code from Scapy Traceroute
+'''
 ##########################
 # Required Imports       #
 ##########################
