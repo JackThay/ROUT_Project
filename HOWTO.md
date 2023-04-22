@@ -33,3 +33,7 @@ Instruction pour installer le projet:
 ou selon votre version de Python:
 
 * sudo python main.py --version;
+
+Une fois que vous avez confirmé l'installation du projet, vous pouvez obtenir de l'aide avec la commande:
+
+* sudo python3 main.py --help
